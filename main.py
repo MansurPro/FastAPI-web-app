@@ -3,6 +3,7 @@ from typing import Union
 from fastapi import FastAPI
 from tortoise.contrib.fastapi import register_tortoise
 from models import *
+from authentication import get_hashed_password
 import uvicorn
 
 app = FastAPI()
@@ -12,6 +13,18 @@ app = FastAPI()
 def index():
     return {"Hello": "World"}
 
+@app.post("/registration")
+async def user_registration(user: user_pydanticIn):
+    user_info = user.dict(exclude_unset=True)
+    user_info["password"] = get_hashed_password(user_info["password"])
+    user_obj = await User.create(**user_info)
+    new_user = await user_pydantic.from_tortoise_orm(user_obj)
+    return {
+        "status": "ok",
+        "data": f"Hello, {new_user.username}, thanks for choosing our services. Please check your email inbox and click on the link to confirm your registration."
+    }
+    
+
 register_tortoise(
     app,
     db_url="sqlite://database.sqlite3",
@@ -20,9 +33,6 @@ register_tortoise(
     add_exception_handlers=True
 )
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
 
 if __name__ == '__main__':
     uvicorn.run(app, port=8000, host="0.0.0.0")
